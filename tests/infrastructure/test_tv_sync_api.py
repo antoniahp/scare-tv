@@ -76,3 +76,22 @@ def test_the_admin_is_there_behind_a_login(client):
     r = client.get("/admin/")
     assert r.status_code == 302 and "/admin/login/" in r["Location"]
     assert client.get("/admin/login/").status_code == 200
+
+
+def test_the_admin_user_comes_from_the_environment_and_follows_password_changes(db, monkeypatch):
+    from django.contrib.auth import get_user_model
+    from django.core.management import call_command
+
+    User = get_user_model()
+    monkeypatch.delenv("DJANGO_SUPERUSER_PASSWORD", raising=False)
+    monkeypatch.setenv("DJANGO_SUPERUSER_USERNAME", "antonia")
+    call_command("ensure_superuser")
+    assert not User.objects.exists()                                   # no password: nothing is created
+    User.objects.create(username="antonia")                            # e.g. left by `createsuperuser --noinput`
+    monkeypatch.setenv("DJANGO_SUPERUSER_PASSWORD", "first")
+    call_command("ensure_superuser")
+    u = User.objects.get(username="antonia")
+    assert u.is_superuser and u.is_staff and u.check_password("first")
+    monkeypatch.setenv("DJANGO_SUPERUSER_PASSWORD", "second")
+    call_command("ensure_superuser")
+    assert User.objects.get(username="antonia").check_password("second")

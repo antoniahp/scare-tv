@@ -14,7 +14,7 @@ services:
     runtime: python
     plan: free
     buildCommand: pip install --upgrade pip poetry && poetry install --no-root --only web && python manage.py collectstatic --noinput
-    startCommand: python manage.py migrate --noinput && (python manage.py createsuperuser --noinput || true) && gunicorn core.wsgi:application --bind 0.0.0.0:$PORT --workers 2 --threads 4
+    startCommand: python manage.py migrate --noinput && python manage.py ensure_superuser && gunicorn core.wsgi:application --bind 0.0.0.0:$PORT --workers 2 --threads 4
     healthCheckPath: /api/health
     envVars:
       - key: PYTHON_VERSION
@@ -28,7 +28,7 @@ services:
           name: scare-tv-db
           property: connectionString
       # The /admin login. Set DJANGO_SUPERUSER_PASSWORD yourself in Render → scare-tv → Environment:
-      # the user is created on the next start (and left alone afterwards).
+      # the user is created (or its password updated) on the next start.
       - key: DJANGO_SUPERUSER_USERNAME
         value: antonia
       - key: DJANGO_SUPERUSER_EMAIL
