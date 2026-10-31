@@ -7,21 +7,9 @@ too. Leaving the frame counts as "fled". Pure logic: numbers only.
 """
 import numpy as np
 
+from domain.rules.jump_level import jump_level, score10  # noqa: F401  (kept here for older imports)
+
 WINDOW = 1.5        # seconds after the hit during which the jump is measured
-
-
-def jump_level(flinch, fled=False):
-    """The jump level stored for each scare and person: the polaroid's 0-10, and 10 for running out of frame."""
-    if fled:
-        return 10
-    return score10(flinch)
-
-
-def score10(flinch):
-    """Eye-distances → a 0 to 10 score for the polaroid."""
-    if flinch is None:
-        return None
-    return int(max(0, min(10, round(flinch * 2.5))))
 
 
 class Flinch:

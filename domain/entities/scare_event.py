@@ -3,7 +3,7 @@ from django.utils import timezone
 
 from domain.entities.base_model import BaseModel
 from domain.exceptions import InvalidScareKind
-from domain.rules.flinch import jump_level
+from domain.rules.jump_level import jump_level
 
 
 class ScareEvent(BaseModel):
