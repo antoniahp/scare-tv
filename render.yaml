@@ -1,0 +1,19 @@
+# Render Blueprint: publishes the web demo (web/) as a free static site.
+# On Render: New → Blueprint → pick this repository. No server and no database:
+# faces are processed in each visitor's browser.
+services:
+  - type: web
+    name: scare-tv-mirror
+    runtime: static
+    buildCommand: echo "nothing to build"
+    staticPublishPath: ./web
+    headers:
+      - path: /*
+        name: Permissions-Policy
+        value: camera=(self)
+      - path: /vendor/*
+        name: Cache-Control
+        value: public, max-age=604800
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
