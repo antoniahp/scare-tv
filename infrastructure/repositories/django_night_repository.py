@@ -2,6 +2,15 @@ from domain.entities import Arrival, Night, ScareEvent
 from domain.repositories.night_repository import NightRepository
 
 
+def refresh_arrival(arrival_id):
+    """Recomputes a person's scare count, highest jump level and fled from their scares (idempotent)."""
+    arrival = Arrival.objects.filter(id=arrival_id).first() if arrival_id else None
+    if arrival:
+        arrival.refresh_from_scares(list(ScareEvent.objects.filter(arrival=arrival)))
+        arrival.save(update_fields=["scare_count", "jump_level", "fled"])
+    return arrival
+
+
 class DjangoNightRepository(NightRepository):
     def find(self, night_id):
         return Night.objects.filter(id=night_id).first()
@@ -16,8 +25,20 @@ class DjangoNightRepository(NightRepository):
     def add_arrival(self, night):
         return Arrival.objects.create(night=night)
 
+    def find_arrival(self, arrival_id, night=None):
+        if not arrival_id:
+            return None
+        qs = Arrival.objects.filter(id=arrival_id)
+        if night is not None:
+            qs = qs.filter(night=night)
+        return qs.first()
+
+    def last_arrival(self, night):
+        return Arrival.objects.filter(night=night).order_by("-created_at").first()
+
     def add_scare(self, scare_event):
         scare_event.save()
+        refresh_arrival(scare_event.arrival_id)
         return scare_event
 
     def last_scare(self, night):
@@ -25,6 +46,7 @@ class DjangoNightRepository(NightRepository):
 
     def save_scare(self, scare_event):
         scare_event.save()
+        refresh_arrival(scare_event.arrival_id)
         return scare_event
 
     def scares(self, night):

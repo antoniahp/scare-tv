@@ -10,6 +10,13 @@ import numpy as np
 WINDOW = 1.5        # seconds after the hit during which the jump is measured
 
 
+def jump_level(flinch, fled=False):
+    """The jump level stored for each scare and person: the polaroid's 0-10, and 10 for running out of frame."""
+    if fled:
+        return 10
+    return score10(flinch)
+
+
 def score10(flinch):
     """Eye-distances → a 0 to 10 score for the polaroid."""
     if flinch is None:

@@ -9,6 +9,7 @@ from rest_framework.views import APIView
 
 from domain.entities import Arrival, Night, ScareEvent
 from infrastructure.api.tv.serializer import TvArrivalSerializer, TvNightSerializer, TvScareSerializer
+from infrastructure.repositories.django_night_repository import refresh_arrival
 
 
 class TvThrottle(AnonRateThrottle):
@@ -79,11 +80,14 @@ class TvScareView(APIView):
             if event.false_alarm != d["false_alarm"]:
                 event.false_alarm = d["false_alarm"]
                 event.save(update_fields=["false_alarm"])
+                refresh_arrival(event.arrival_id)
             return Response({"created": False}, status=status.HTTP_200_OK)
+        arrival = Arrival.objects.filter(id=d["arrival"], night=night).first() if d["arrival"] else None
         event = ScareEvent.prepare(night, d["kind"], d["name"], face_seen=d["face_seen"], flinch=d["flinch"], fled=d["fled"],
-                                   wait_seconds=d["wait_seconds"], trigger=d["trigger"])
+                                   wait_seconds=d["wait_seconds"], trigger=d["trigger"], arrival=arrival)
         event.id, event.false_alarm = d["id"], d["false_alarm"]
         if d.get("created_at"):
             event.created_at = d["created_at"]
         event.save(force_insert=True)
+        refresh_arrival(event.arrival_id)
         return Response({"created": True}, status=status.HTTP_201_CREATED)

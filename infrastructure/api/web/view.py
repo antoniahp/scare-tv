@@ -58,8 +58,8 @@ class WebScareView(APIView):
             return Response({"detail": "Unknown visit."}, status=status.HTTP_404_NOT_FOUND)
         rank = GetFlinchRankQuery(repositories).execute(GetFlinchRankQueryDTO(flinch=d["flinch"], media=WEB))
         try:
-            RecordArrivalCommand(repositories).execute(RecordArrivalCommandDTO(night_id=night.id))
-            RecordScareCommand(repositories).execute(RecordScareCommandDTO(
+            person = repositories.nights.last_arrival(night) or RecordArrivalCommand(repositories).execute(RecordArrivalCommandDTO(night_id=night.id))
+            RecordScareCommand(repositories).execute(RecordScareCommandDTO(arrival_id=person.id,
                 night_id=night.id, kind=ScareEvent.LIVE, name=d["effect"], face_seen=d["face_seen"],
                 flinch=None if d["flinch"] is None else round(d["flinch"], 2), fled=d["fled"],
                 wait_seconds=None if d["wait_seconds"] is None else round(d["wait_seconds"], 1), trigger="web"))

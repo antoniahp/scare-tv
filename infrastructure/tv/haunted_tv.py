@@ -96,6 +96,7 @@ class ScareTV:
             self.uploader.night(self.night)
             print(f"Night log: also sent to {self.uploader.base} (numbers only)", flush=True)
         self.arrived_t = None
+        self.arrival = None                   # the person in front of the TV right now (their scares hang from it)
         self.present = False
         self.trigger = "auto"
 
@@ -249,7 +250,7 @@ class ScareTV:
         if self.night:
             event = RecordScareCommand(self.repositories).execute(RecordScareCommandDTO(
                 night_id=self.night.id, kind=kind, name=name, face_seen=bool(face), flinch=flinch, fled=fled,
-                wait_seconds=wait, trigger=self.trigger))
+                wait_seconds=wait, trigger=self.trigger, arrival_id=self.arrival.id if self.arrival else None))
             self.uploader.scare(event)
         if flinch is not None:
             print(f"   jump-o-meter: {score10(flinch)}/10 ({flinch} eye-distances){'  FLED!' if fled else ''}", flush=True)
@@ -569,7 +570,8 @@ class ScareTV:
                 if not self.present:
                     self.present, self.arrived_t = True, now
                     if self.night:
-                        self.uploader.arrival(RecordArrivalCommand(self.repositories).execute(RecordArrivalCommandDTO(night_id=self.night.id)))
+                        self.arrival = RecordArrivalCommand(self.repositories).execute(RecordArrivalCommandDTO(night_id=self.night.id))
+                        self.uploader.arrival(self.arrival)
                 last_seen = now
             else:
                 streak = 0

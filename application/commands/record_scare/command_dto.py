@@ -12,3 +12,4 @@ class RecordScareCommandDTO:
     fled: bool = False
     wait_seconds: float | None = None
     trigger: str = "auto"
+    arrival_id: UUID | None = None          # the person who got the scare (None: nobody was registered, e.g. a test key)

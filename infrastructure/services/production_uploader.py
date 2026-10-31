@@ -35,7 +35,7 @@ def arrival_payload(arrival):
 
 
 def scare_payload(event):
-    return {"id": str(event.id), "night": str(event.night_id), "kind": event.kind, "name": event.name, "face_seen": event.face_seen,
+    return {"id": str(event.id), "night": str(event.night_id), "arrival": str(event.arrival_id) if event.arrival_id else None, "kind": event.kind, "name": event.name, "face_seen": event.face_seen,
             "flinch": event.flinch, "fled": event.fled, "wait_seconds": event.wait_seconds, "trigger": event.trigger,
             "false_alarm": event.false_alarm, "created_at": event.created_at.isoformat()}
 

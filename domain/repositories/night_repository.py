@@ -21,8 +21,16 @@ class NightRepository(ABC):
         pass
 
     @abstractmethod
+    def find_arrival(self, arrival_id, night=None):
+        """The person (arrival), optionally only if it belongs to that night, or None."""
+
+    @abstractmethod
+    def last_arrival(self, night):
+        """The latest person of the night, or None."""
+
+    @abstractmethod
     def add_scare(self, scare_event):
-        pass
+        """Saves the scare and updates its person's count, highest jump level and fled."""
 
     @abstractmethod
     def last_scare(self, night):

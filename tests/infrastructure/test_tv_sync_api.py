@@ -95,3 +95,41 @@ def test_the_admin_user_comes_from_the_environment_and_follows_password_changes(
     monkeypatch.setenv("DJANGO_SUPERUSER_PASSWORD", "second")
     call_command("ensure_superuser")
     assert User.objects.get(username="antonia").check_password("second")
+
+
+def test_one_row_per_person_with_the_highest_jump_level(client):
+    # phone: one visit = one person, however many times they press "again"
+    visit = client.post("/api/web/visits", {"lang": "es"}, format="json").json()["visit"]
+    client.post("/api/web/scares", {"visit": visit, "effect": "grin", "flinch": 0.8}, format="json")       # level 2
+    client.post("/api/web/scares", {"visit": visit, "effect": "melt", "flinch": 2.0}, format="json")       # level 5
+    phone = Arrival.objects.get(night_id=visit)
+    assert (phone.scare_count, phone.jump_level, phone.fled) == (2, 5, False)
+    assert list(ScareEvent.objects.filter(arrival=phone).values_list("jump_level", flat=True).order_by("created_at")) == [2, 5]
+
+    # TV: each scare names its person; running out of frame is a 10; a false alarm stops counting
+    night, _ = _night(client)
+    person = {"id": str(uuid.uuid4()), "night": night["id"], "created_at": "2026-10-30T19:04:00Z"}
+    client.post("/api/tv/arrivals", person, format="json")
+    first = _scare(night["id"], arrival=person["id"], flinch=1.2)
+    client.post("/api/tv/scares", first, format="json")
+    client.post("/api/tv/scares", _scare(night["id"], arrival=person["id"], flinch=0.3, fled=True, created_at="2026-10-30T19:06:00Z"), format="json")
+    tv = Arrival.objects.get(id=person["id"])
+    assert (tv.scare_count, tv.jump_level, tv.fled) == (2, 10, True)
+    client.post("/api/tv/scares", {**first, "false_alarm": True}, format="json")
+    tv.refresh_from_db()
+    assert tv.scare_count == 1 and tv.jump_level == 10
+    assert client.get("/admin/domain/arrival/").status_code == 302           # the people list sits behind the login
+
+
+def test_the_tv_hangs_each_scare_from_the_person_in_front_of_it(repositories):
+    from application.commands.record_arrival.command import RecordArrivalCommand
+    from application.commands.record_arrival.command_dto import RecordArrivalCommandDTO
+    from application.commands.record_scare.command import RecordScareCommand
+    from application.commands.record_scare.command_dto import RecordScareCommandDTO
+
+    night = Night.objects.create(media="media")
+    person = RecordArrivalCommand(repositories).execute(RecordArrivalCommandDTO(night_id=night.id))
+    RecordScareCommand(repositories).execute(RecordScareCommandDTO(night_id=night.id, kind="live", name="grin", flinch=1.6, arrival_id=person.id))
+    nobody = RecordScareCommand(repositories).execute(RecordScareCommandDTO(night_id=night.id, kind="file", name="16_the_skull", flinch=0.1))
+    person.refresh_from_db()
+    assert (person.scare_count, person.jump_level) == (1, 4) and nobody.arrival is None and nobody.jump_level == 0

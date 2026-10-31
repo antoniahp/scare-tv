@@ -34,6 +34,7 @@ class TvScareSerializer(serializers.Serializer):
 
     id = serializers.UUIDField()
     night = serializers.UUIDField()
+    arrival = serializers.UUIDField(required=False, allow_null=True, default=None)    # the person who got the scare
     kind = serializers.ChoiceField(choices=list(ScareEvent.KINDS))
     name = serializers.RegexField(NAME)
     face_seen = serializers.BooleanField(default=False)

@@ -40,10 +40,12 @@ migrate: ## Apply the night log migrations
 	$(MANAGE) migrate
 
 run: ## Start Scare-TV (live scares with your own face + classics)
+	$(MANAGE) migrate -v0
 	$(MANAGE) scare_tv --display $(SCREEN) --lang $(APP_LANG) --repeat $(REPEAT) $(ARGS)
 
 run2: ## Start Scare-TV 2 (realistic faces from make realistic + live scares)
 	@test -n "$$(ls media_real/*.mp4 2>/dev/null)" || { echo "Create the faces first: make realistic"; exit 1; }
+	$(MANAGE) migrate -v0
 	$(MANAGE) scare_tv --display $(SCREEN) --lang $(APP_LANG) --repeat $(REPEAT) --media media_real --live-chance 0.5 $(ARGS)
 
 try: ## Scare-TV in a window, showing what the camera detects (SPACE = scare)
@@ -75,6 +77,7 @@ summary: ## Summary of the last night (scares, jump-o-meter…)
 	$(MANAGE) night_summary
 
 upload: ## Send the local night log (TV) to the production database on Render
+	$(MANAGE) migrate -v0
 	$(MANAGE) upload_nights $(ARGS)
 
 test: ## Run all the tests

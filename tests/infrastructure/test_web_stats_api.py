@@ -24,7 +24,7 @@ def test_a_visit_records_scares_and_ranks_each_jump(client):
     assert smaller.json()["rank"] == 0
 
     s = client.get("/api/web/summary").json()
-    assert s["visits"] == 2 and s["arrivals"] == 3 and s["scares"] == 3
+    assert s["visits"] == 2 and s["arrivals"] == 2 and s["scares"] == 3          # one person per visit
     assert s["live"]["fled"] == 1 and s["live"]["flinch_mean"] == round((1.5 + 3.0 + 0.2) / 3, 2)
     md = client.get("/api/web/summary?md=1").content.decode()
     assert "Visits: **2**" in md and "| black_eyes | 1 | 3.0 | 1 |" in md
