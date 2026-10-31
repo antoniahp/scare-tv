@@ -19,7 +19,7 @@ SCARES = [  # (name, description, scream type). All head-and-shoulders faces loo
     ("nurse", "medium shot from a few meters away, head and shoulders and chest of a ghostly nurse, rotting grey skin, white eyes, stained old uniform, abandoned hospital corridor", "both"),
     ("clown", "medium shot from a few meters away, head and shoulders and chest of a sinister clown, cracked white face paint, rotten teeth, standing in a dark abandoned circus tent", "scream"),
 ]
-VERSION = "6"            # if it changes, they are all imagined again
+VERSION = "7"            # if it changes, they are all imagined again
 MAX_TRIES = 5            # attempts to find a face that can be possessed
 
 

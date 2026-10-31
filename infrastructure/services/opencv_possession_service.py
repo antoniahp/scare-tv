@@ -62,6 +62,65 @@ def grade(img, k, t, tint=(0.9, 1.05, 0.85)):
     return np.clip(f, 0, 255).astype(np.uint8)
 
 
+def _vein_tree(seed, n_roots=7):
+    """Vein paths around one eye, in eye-distance units (x along the eyes, y down). Deterministic per eye, so they
+    don't flicker from frame to frame: a random walk that bends and branches, thick at the root and thin at the tip."""
+    r = random.Random(seed)
+    branches = []
+
+    def walk(x, y, ang, steps, width, depth):
+        pts = [(x, y)]
+        for i in range(steps):
+            ang += r.uniform(-0.38, 0.38)
+            step = r.uniform(0.035, 0.06)
+            x, y = x + math.cos(ang) * step, y + math.sin(ang) * step
+            pts.append((x, y))
+            if depth < 2 and i > 2 and r.random() < 0.22:
+                walk(x, y, ang + r.choice((-1, 1)) * r.uniform(0.5, 0.9), int(steps * r.uniform(0.35, 0.6)), width * 0.6, depth + 1)
+        branches.append((pts, width))
+
+    for k in range(n_roots):
+        ang = (k / n_roots) * 2 * math.pi + r.uniform(-0.3, 0.3)
+        walk(math.cos(ang) * 0.2, math.sin(ang) * 0.14, ang, r.randint(9, 15), r.uniform(0.03, 0.042), 0)
+    return branches
+
+
+_VEINS = {i: _vein_tree(1234 + i) for i in range(2)}
+
+
+def organic_veins(img, face, grow):
+    """Dark, tapered, branching veins that grow out of the eye sockets, blended into the skin (multiply + a soft
+    bruise around them) instead of painted on top."""
+    if grow <= 0:
+        return img
+    d = face.d
+    ex = np.array([math.cos(math.radians(face.angle)), math.sin(math.radians(face.angle))])
+    ey = np.array([-ex[1], ex[0]])
+    H, W = img.shape[:2]
+    core = np.zeros((H, W), np.float32)
+    halo = np.zeros((H, W), np.float32)
+    for i, e in enumerate(face.eyes):
+        for pts, width in _VEINS[i % 2]:
+            n = max(2, int(len(pts) * min(1.0, grow)))
+            P = [np.asarray(e) + ex * px * d + ey * py * d for px, py in pts[:n]]
+            for j in range(n - 1):
+                taper = (1 - j / len(pts)) ** 0.8
+                w = max(1, int(round(width * d * taper)))
+                a, b = tuple(map(int, P[j])), tuple(map(int, P[j + 1]))
+                cv2.line(core, a, b, 1.0, w, cv2.LINE_AA)
+                cv2.line(halo, a, b, 1.0, w * 3 + 2, cv2.LINE_AA)
+    k = max(3, int(d * 0.06) | 1)
+    core = cv2.GaussianBlur(core, (k, k), 0)
+    halo = cv2.GaussianBlur(halo, (k * 3 | 1, k * 3 | 1), 0)
+    f = img.astype(np.float32)
+    bruise = np.array([0.62, 0.55, 0.78], np.float32)          # BGR multiply: purple-red under the skin
+    f *= 1 - halo[..., None] * 0.5 * (1 - bruise)
+    vein = np.array([40, 10, 55], np.float32)                  # BGR: dark wine
+    a = np.clip(core * 0.85, 0, 1)[..., None]
+    f = f * (1 - a) + (f * vein / 255.0) * a
+    return np.clip(f, 0, 255).astype(np.uint8)
+
+
 def black_eyes(img, face, amount, glint=True, veins=True):
     if amount <= 0:
         return img
@@ -74,15 +133,8 @@ def black_eyes(img, face, amount, glint=True, veins=True):
         sock = np.maximum(sock, soft_ellipse(img.shape, e, (d * 0.48, d * 0.36), face.angle, 0.8))
     out = blend(img, (0, 0, 0), sock * 0.55 * amount)
     out = blend(out, (2, 0, 4), np.clip(m * 1.3 * amount, 0, 1))
-    if veins and amount > 0.5:
-        r = random.Random(int(d))
-        for e in face.eyes:
-            for _ in range(7):
-                a = r.uniform(0, 2 * math.pi)
-                length = d * r.uniform(0.35, 0.75)
-                p0 = e + np.array([math.cos(a), math.sin(a)]) * d * 0.2
-                p1 = p0 + np.array([math.cos(a + r.uniform(-.4, .4)), math.sin(a + r.uniform(-.4, .4))]) * length * (amount - 0.5) * 2
-                cv2.line(out, tuple(map(int, p0)), tuple(map(int, p1)), (20, 10, 40), max(1, int(d / 40)), cv2.LINE_AA)
+    if veins and amount > 0.35:
+        out = organic_veins(out, face, (amount - 0.35) / 0.65)
     if glint and amount > 0.85:
         for e in face.eyes:
             cv2.circle(out, (int(e[0] + d * 0.05), int(e[1] - d * 0.04)), max(1, int(d * 0.03)), (40, 40, 220), -1, cv2.LINE_AA)

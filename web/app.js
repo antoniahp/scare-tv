@@ -116,10 +116,55 @@ function faceFrom(lm) {
 function polyPath(ctx, pts) { ctx.beginPath(); pts.forEach((p, i) => (i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]))); ctx.closePath(); }
 function seeded(n) { let s = n * 9301 + 49297; return () => ((s = (s * 9301 + 49297) % 233280) / 233280); }
 
+// Veins: a random walk that bends and branches out of each socket, thick at the root and thin at the tip.
+// Fixed per eye (no flicker), measured in eye-distances, and multiplied into the skin instead of painted on top.
+function veinTree(seed) {
+  const r = seeded(seed), out = [];
+  const walk = (x, y, ang, steps, width, depth) => {
+    const pts = [[x, y]];
+    for (let i = 0; i < steps; i++) {
+      ang += (r() - 0.5) * 0.76;
+      const step = 0.03 + r() * 0.018;
+      x += Math.cos(ang) * step; y += Math.sin(ang) * step; pts.push([x, y]);
+      if (depth < 2 && i > 2 && r() < 0.22) walk(x, y, ang + (r() < 0.5 ? -1 : 1) * (0.5 + r() * 0.4), Math.floor(steps * (0.35 + r() * 0.25)), width * 0.6, depth + 1);
+    }
+    out.push({ pts, width });
+  };
+  for (let k = 0; k < 7; k++) {
+    const ang = (k / 7) * Math.PI * 2 + (r() - 0.5) * 0.6;
+    walk(Math.cos(ang) * 0.19, Math.sin(ang) * 0.12, ang, 8 + Math.floor(r() * 6), 0.028 + r() * 0.01, 0);
+  }
+  return out;
+}
+const VEINS = [veinTree(1234), veinTree(1235)];
+function drawVeins(ctx, c, f, grow, eyeIdx) {
+  if (grow <= 0) return;
+  const P = (x, y) => [c[0] + (f.ex[0] * x + f.ey[0] * y) * f.d, c[1] + (f.ex[1] * x + f.ey[1] * y) * f.d];
+  ctx.save(); ctx.lineCap = "round"; ctx.lineJoin = "round";
+  // wide faint bruise, softer bruise, wine vein, thin dark centre: each vein in 3 continuous chunks that thin out
+  const passes = [["rgba(170,70,95,0.10)", 7], ["rgba(150,50,80,0.20)", 3.2], ["rgba(105,25,58,0.85)", 1], ["rgba(55,8,32,0.6)", 0.35]];
+  ctx.globalCompositeOperation = "multiply";
+  for (const [col, k] of passes) {
+    ctx.strokeStyle = col;
+    for (const v of VEINS[eyeIdx % 2]) {
+      const n = Math.max(2, Math.floor(v.pts.length * Math.min(1, grow)));
+      const chunk = Math.max(2, Math.ceil(n / 3));
+      for (let s0 = 0; s0 < n - 1; s0 += chunk - 1) {
+        const s1 = Math.min(n - 1, s0 + chunk - 1);
+        ctx.lineWidth = Math.max(0.6, v.width * f.d * k * Math.pow(1 - s0 / v.pts.length, 0.9));
+        ctx.beginPath();
+        for (let j = s0; j <= s1; j++) { const q = P(...v.pts[j]); j === s0 ? ctx.moveTo(q[0], q[1]) : ctx.lineTo(q[0], q[1]); }
+        ctx.stroke();
+      }
+    }
+  }
+  ctx.restore();
+}
+
 function blackEyes(ctx, f, a, veins = true) {
   if (a <= 0) return;
   ctx.save();
-  f.eyeRings.forEach((ring) => {
+  f.eyeRings.forEach((ring, eyeIdx) => {
     const c = ring.reduce((m, p) => [m[0] + p[0] / ring.length, m[1] + p[1] / ring.length], [0, 0]);
     const g = ctx.createRadialGradient(c[0], c[1], 0, c[0], c[1], f.d * 0.6);
     g.addColorStop(0, `rgba(0,0,0,${0.6 * a})`); g.addColorStop(1, "rgba(0,0,0,0)");
@@ -128,17 +173,7 @@ function blackEyes(ctx, f, a, veins = true) {
     polyPath(ctx, ring.map((p) => [c[0] + (p[0] - c[0]) * k, c[1] + (p[1] - c[1]) * (k + 0.35 * a)]));
     ctx.globalAlpha = Math.min(1, a * 1.4); ctx.fillStyle = "#020004"; ctx.shadowColor = "#000"; ctx.shadowBlur = f.d * 0.15;
     ctx.fill(); ctx.shadowBlur = 0; ctx.globalAlpha = 1;
-    if (veins && a > 0.5) {
-      const r = seeded(Math.round(c[0]));
-      ctx.strokeStyle = "rgba(28,8,44,.85)"; ctx.lineWidth = Math.max(1, f.d / 38);
-      for (let i = 0; i < 8; i++) {
-        const ang = r() * Math.PI * 2, len = f.d * (0.3 + 0.45 * r()) * (a - 0.5) * 2;
-        ctx.beginPath(); ctx.moveTo(c[0] + Math.cos(ang) * f.d * 0.22, c[1] + Math.sin(ang) * f.d * 0.18);
-        ctx.quadraticCurveTo(c[0] + Math.cos(ang + 0.3) * (f.d * 0.25 + len * 0.6), c[1] + Math.sin(ang + 0.3) * (f.d * 0.25 + len * 0.6),
-                             c[0] + Math.cos(ang) * (f.d * 0.22 + len), c[1] + Math.sin(ang) * (f.d * 0.18 + len));
-        ctx.stroke();
-      }
-    }
+    if (veins && a > 0.35) drawVeins(ctx, c, f, (a - 0.35) / 0.65, eyeIdx);
     if (a > 0.85) { ctx.fillStyle = "rgba(230,30,40,.9)"; ctx.beginPath(); ctx.arc(c[0] + f.d * 0.05, c[1] - f.d * 0.04, Math.max(1.2, f.d * 0.03), 0, 7); ctx.fill(); }
   });
   ctx.restore();
@@ -334,7 +369,15 @@ function hitNow(now) {                  // jump the timeline (picture and sound)
 // The screen stays black ("I can't see you…") while the face model keeps watching in the dark. Then, with no
 // warning, their possessed face jumps out at full strength, LOUD. A blink in the dark brings it forward.
 const DARK_GAIN = 2.4;                  // louder than the mirror: the whole point is the ambush
+function whisper() {
+  const b = S.buffers["whisper_" + (1 + Math.floor(Math.random() * 3))];
+  if (!b || !S.audio) return;
+  const gain = S.audio.createGain(); gain.gain.value = 0.7; gain.connect(S.audio.destination);
+  const src = S.audio.createBufferSource(); src.buffer = b; src.connect(gain); src.start(); S.wsrc = src;
+}
 function darkStrike(now) {
+  if (S.wsrc) { try { S.wsrc.stop(); } catch (e) { /* already stopped */ } }
+  S.nextWhisper = 0;
   startPossession();
   if (S.face) S.flinch.ref = [S.face.center, S.face.d];   // where the face was in the dark: the jump is measured from here
   S.t0 = now - PRE * 1000; S.darkHit = true;
@@ -550,6 +593,10 @@ function frame(now) {
       vctx.globalAlpha = 0.55 + 0.35 * Math.sin(now / 420); vctx.fillStyle = "#b8a9ae";
       vctx.fillText(tr("dark"), VW / 2, VH * 0.5, VW * 0.9); vctx.globalAlpha = 1;
     }
+    if (S.meshReady && now > (S.nextWhisper || 0)) {          // it whispers in the dark (ElevenLabs voice), quietly
+      if (S.nextWhisper) whisper();
+      S.nextWhisper = now + 2600 + Math.random() * 3200;
+    }
   }
   if (S.phase === "possess") {
     const t = (now - S.t0) / 1000, p = t / PRE, q = (t - PRE) / POST;
@@ -580,6 +627,7 @@ async function start(mode) {
     video.srcObject = stream; await video.play();
     $("intro").hidden = true; S.phase = "mirror"; hint(tr("loading"));
     EFFECTS.forEach((e) => loadBuffer(e).catch(() => {}));
+    if (S.mode === "dark") [1, 2, 3].forEach((i) => loadBuffer("whisper_" + i).catch(() => {}));
     if (!S.mesh) {
       const base = new URL("vendor/face_mesh/", location.href).href;     // the model ships with the page: no CDN, no tracking
       S.mesh = new FaceMesh({ locateFile: (file) => base + file });
