@@ -24,3 +24,6 @@ _old/
 
 # collectstatic output
 staticfiles/
+
+# demo material made for the post (GIFs, video, stand-in faces): kept out of the repo
+_demo/
