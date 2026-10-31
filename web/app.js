@@ -14,7 +14,7 @@ const I18N = {
   en: {
     tag: "Look into the mirror",
     lead: "Your camera becomes a mirror. An open-weight face model finds your eyes, your nose and your mouth… and then something happens to them.",
-    start: "Look 👁️", startDark: "Lights out 🌑", dark: "I CAN'T SEE YOU…",
+    start: "Look 👁️", startDark: "Lights out 🌑", dark: "I CAN'T SEE YOU…", darkSearch: "WHERE ARE YOU…?",
     fine: "Everything runs <b>inside your browser</b>. No photo or video ever leaves your device: only anonymous numbers (which scare, how far you jumped). Turn the sound <b>up</b>. Best on a phone, in a dim room.",
     cap: "Your scared face", again: "Again 👻", save: "Save photo",
     local: "This photo only exists on your phone. Only the jump score was counted, anonymously.",
@@ -35,7 +35,7 @@ const I18N = {
   es: {
     tag: "Mírate en el espejo",
     lead: "Tu cámara se convierte en un espejo. Un modelo de caras open-weight encuentra tus ojos, tu nariz y tu boca… y entonces les pasa algo.",
-    start: "Mirar 👁️", startDark: "A oscuras 🌑", dark: "NO TE VEO…",
+    start: "Mirar 👁️", startDark: "A oscuras 🌑", dark: "NO TE VEO…", darkSearch: "¿DÓNDE ESTÁS…?",
     fine: "Todo funciona <b>dentro de tu navegador</b>. Ninguna foto ni vídeo sale de tu dispositivo: solo números anónimos (qué susto y cuánto saltaste). Sube el <b>volumen</b>. Mejor en el móvil y con poca luz.",
     cap: "Tu cara de susto", again: "Otra vez 👻", save: "Guardar foto",
     local: "Esta foto solo existe en tu móvil. Solo se ha contado tu salto, de forma anónima.",
@@ -377,7 +377,7 @@ function whisper() {
 }
 function darkStrike(now) {
   if (S.wsrc) { try { S.wsrc.stop(); } catch (e) { /* already stopped */ } }
-  S.nextWhisper = 0;
+  S.nextWhisper = 0; S.glow = 0;
   startPossession();
   if (S.face) S.flinch.ref = [S.face.center, S.face.d];   // where the face was in the dark: the jump is measured from here
   S.t0 = now - PRE * 1000; S.darkHit = true;
@@ -512,7 +512,14 @@ function frame(now) {
   let focus = [W / 2, H / 2], zoom = 1, shake = 0;
   if (S.phase === "mirror") {
     const dark = S.mode === "dark";
-    if (fresh) { if (!S.faceSince) { S.faceSince = now; S.waitMs = dark ? 2500 + Math.random() * 4500 : 1500 + Math.random() * 3500; } hint(dark ? "" : tr("look")); } else { S.faceSince = 0; }
+    if (fresh) { if (!S.faceSince) { S.faceSince = now; S.waitMs = dark ? 2500 + Math.random() * 4500 : 1500 + Math.random() * 3500; } hint(dark ? "" : tr("look")); }
+    else if (!dark || now - S.lastSeen > 1000) S.faceSince = 0;   // in the dark a face blinks in and out: allow short gaps
+    // In a dark room the camera can't see a black screen's audience either. If nobody has been found for 2 s,
+    // the screen slowly lights up in a cold glow, as if it were looking for you, until the face model finds a face.
+    if (dark && S.meshReady) {
+      const lost = !S.faceSince && now - Math.max(S.lastSeen || 0, S.readyAt || 0, S.darkFrom || 0) > 2000;
+      if (lost) S.glow = Math.min(0.6, (S.glow || 0) + 0.004);
+    }
     const blinked = trackEyes(fresh);                             // learn how open their eyes normally are
     if (dark && blinked && S.faceSince && now - S.faceSince > 1200) { darkStrike(now); return; }   // blinking in the dark: here it comes
     if (!S.meshReady) hint(tr("loading"));                       // still downloading: don't blame the face
@@ -587,11 +594,17 @@ function frame(now) {
 
   if (S.mode === "dark" && S.phase === "mirror") {            // lights out: black screen, a flickering whisper
     vctx.fillStyle = "#000"; vctx.fillRect(0, 0, VW, VH);
+    if (S.glow > 0.01) {                                         // the search glow: dim, cold, never quite steady
+      const g = S.glow * (0.88 + 0.12 * Math.random());
+      const rg = vctx.createRadialGradient(VW / 2, VH * 0.45, 0, VW / 2, VH * 0.45, Math.max(VW, VH) * 0.75);
+      rg.addColorStop(0, `rgba(175,190,215,${g})`); rg.addColorStop(1, `rgba(55,65,85,${g * 0.55})`);
+      vctx.fillStyle = rg; vctx.fillRect(0, 0, VW, VH);
+    }
     if (S.meshReady && Math.random() > 0.08) {
       const size = Math.round(Math.min(VW * 0.1, VH * 0.06));
       vctx.font = `${size}px Creepster, cursive`; vctx.textAlign = "center"; vctx.textBaseline = "middle";
       vctx.globalAlpha = 0.55 + 0.35 * Math.sin(now / 420); vctx.fillStyle = "#b8a9ae";
-      vctx.fillText(tr("dark"), VW / 2, VH * 0.5, VW * 0.9); vctx.globalAlpha = 1;
+      vctx.fillText(S.glow > 0.05 && !S.faceSince ? tr("darkSearch") : tr("dark"), VW / 2, VH * 0.5, VW * 0.9); vctx.globalAlpha = 1;
     }
     if (S.meshReady && now > (S.nextWhisper || 0)) {          // it whispers in the dark (ElevenLabs voice), quietly
       if (S.nextWhisper) whisper();
@@ -615,7 +628,7 @@ function frame(now) {
 
 // ------------------------------------------------------------------ start
 async function start(mode) {
-  S.mode = mode === "dark" ? "dark" : "mirror";
+  S.mode = mode === "dark" ? "dark" : "mirror"; S.glow = 0; S.darkFrom = performance.now();
   $("start").disabled = $("startDark").disabled = true;
   try {
     S.audio = S.audio || new (window.AudioContext || window.webkitAudioContext)();
@@ -658,7 +671,7 @@ $("start").addEventListener("click", () => start("mirror"));
 $("startDark").addEventListener("click", () => start("dark"));
 $("retry").addEventListener("click", () => { $("fallback").hidden = true; $("intro").hidden = false; $("classic").pause(); });
 $("again").addEventListener("click", () => {
-  $("polaroid").hidden = true; S.phase = "mirror"; S.faceSince = 0; S.buffer = []; hint(S.mode === "dark" ? "" : tr("look"));
+  $("polaroid").hidden = true; S.phase = "mirror"; S.faceSince = 0; S.buffer = []; S.glow = 0; S.darkFrom = performance.now(); hint(S.mode === "dark" ? "" : tr("look"));
   if (S.audio && S.audio.state === "suspended") S.audio.resume();
 });
 $("save").addEventListener("click", () => {
