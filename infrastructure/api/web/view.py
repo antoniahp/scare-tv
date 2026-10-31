@@ -62,7 +62,8 @@ class WebScareView(APIView):
             RecordScareCommand(repositories).execute(RecordScareCommandDTO(arrival_id=person.id,
                 night_id=night.id, kind=ScareEvent.LIVE, name=d["effect"], face_seen=d["face_seen"],
                 flinch=None if d["flinch"] is None else round(d["flinch"], 2), fled=d["fled"],
-                wait_seconds=None if d["wait_seconds"] is None else round(d["wait_seconds"], 1), trigger="web"))
+                wait_seconds=None if d["wait_seconds"] is None else round(d["wait_seconds"], 1),
+                trigger="web_dark" if d["mode"] == "dark" else "web"))
         except NightNotFound:
             return Response({"detail": "Unknown visit."}, status=status.HTTP_404_NOT_FOUND)
         return Response({"rank": rank, "scares": len(repositories.nights.scares(night))}, status=status.HTTP_201_CREATED)

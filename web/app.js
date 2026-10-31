@@ -14,7 +14,7 @@ const I18N = {
   en: {
     tag: "Look into the mirror",
     lead: "Your camera becomes a mirror. An open-weight face model finds your eyes, your nose and your mouth… and then something happens to them.",
-    start: "Look 👁️",
+    start: "Look 👁️", startDark: "Lights out 🌑", dark: "I CAN'T SEE YOU…",
     fine: "Everything runs <b>inside your browser</b>. No photo or video ever leaves your device: only anonymous numbers (which scare, how far you jumped). Turn the sound <b>up</b>. Best on a phone, in a dim room.",
     cap: "Your scared face", again: "Again 👻", save: "Save photo",
     local: "This photo only exists on your phone. Only the jump score was counted, anonymously.",
@@ -35,7 +35,7 @@ const I18N = {
   es: {
     tag: "Mírate en el espejo",
     lead: "Tu cámara se convierte en un espejo. Un modelo de caras open-weight encuentra tus ojos, tu nariz y tu boca… y entonces les pasa algo.",
-    start: "Mirar 👁️",
+    start: "Mirar 👁️", startDark: "A oscuras 🌑", dark: "NO TE VEO…",
     fine: "Todo funciona <b>dentro de tu navegador</b>. Ninguna foto ni vídeo sale de tu dispositivo: solo números anónimos (qué susto y cuánto saltaste). Sube el <b>volumen</b>. Mejor en el móvil y con poca luz.",
     cap: "Tu cara de susto", again: "Otra vez 👻", save: "Guardar foto",
     local: "Esta foto solo existe en tu móvil. Solo se ha contado tu salto, de forma anónima.",
@@ -330,6 +330,23 @@ function hitNow(now) {                  // jump the timeline (picture and sound)
   }
 }
 
+// ------------------------------------------------------------------ "lights out" mode (a player's idea)
+// The screen stays black ("I can't see you…") while the face model keeps watching in the dark. Then, with no
+// warning, their possessed face jumps out at full strength, LOUD. A blink in the dark brings it forward.
+const DARK_GAIN = 2.4;                  // louder than the mirror: the whole point is the ambush
+function darkStrike(now) {
+  startPossession();
+  if (S.face) S.flinch.ref = [S.face.center, S.face.d];   // where the face was in the dark: the jump is measured from here
+  S.t0 = now - PRE * 1000; S.darkHit = true;
+  if (S.src) { try { S.src.stop(); } catch (e) { /* already stopped */ } }
+  const b = S.buffers[S.effect];
+  if (b && S.audio) {
+    const gain = S.audio.createGain(); gain.gain.value = DARK_GAIN; gain.connect(S.audio.destination);
+    const src = S.audio.createBufferSource(); src.buffer = b; src.connect(gain);
+    src.start(0, Math.max(0, PRE - 0.05)); S.src = src;
+  }
+}
+
 function flinchScore(fl) {
   if (!fl || !fl.ref || !fl.after) return null;
   if (fl.seen / fl.after < 0.3) return 10;               // left the frame: maximum
@@ -373,6 +390,7 @@ async function reportScare(fl, effect, waitS) {
     visit: S.visit, effect, face_seen: !!(fl && fl.ref), fled,
     flinch: measured ? Math.round(Math.min(20, fled ? Math.max(fl.best, 4) : fl.best) * 100) / 100 : null,
     wait_seconds: waitS == null ? null : Math.round(waitS * 10) / 10,
+    mode: S.mode === "dark" ? "dark" : "mirror",
   });
 }
 
@@ -385,7 +403,7 @@ function nextEffect() {
 function startPossession() {
   S.wait = S.faceSince ? (performance.now() - S.faceSince) / 1000 : null;
   S.effect = nextEffect(); S.phase = "possess"; S.t0 = performance.now(); S.flinch = newFlinch(); S.snap = null;
-  S.voiceSaid = false; S.hitDone = false; S.blinkHit = false; hint("");
+  S.voiceSaid = false; S.hitDone = false; S.blinkHit = false; S.darkHit = false; hint("");
   S.src = playTrack(S.effect);
   loadBuffer(S.effects.length ? S.effects[S.effects.length - 1] : EFFECTS[0]).catch(() => {});   // prefetch the next one
 }
@@ -450,13 +468,15 @@ function frame(now) {
 
   let focus = [W / 2, H / 2], zoom = 1, shake = 0;
   if (S.phase === "mirror") {
-    if (fresh) { if (!S.faceSince) { S.faceSince = now; S.waitMs = 1500 + Math.random() * 3500; } hint(tr("look")); } else { S.faceSince = 0; }
-    trackEyes(fresh);                                             // learn how open their eyes normally are
+    const dark = S.mode === "dark";
+    if (fresh) { if (!S.faceSince) { S.faceSince = now; S.waitMs = dark ? 2500 + Math.random() * 4500 : 1500 + Math.random() * 3500; } hint(dark ? "" : tr("look")); } else { S.faceSince = 0; }
+    const blinked = trackEyes(fresh);                             // learn how open their eyes normally are
+    if (dark && blinked && S.faceSince && now - S.faceSince > 1200) { darkStrike(now); return; }   // blinking in the dark: here it comes
     if (!S.meshReady) hint(tr("loading"));                       // still downloading: don't blame the face
     else if (!S.results && S.sendErr > 3) hint(tr("noFace") + (DEBUG ? " " + S.lastErr : ""));
-    else if (!fresh && S.results && now - Math.max(S.lastSeen, S.readyAt || 0) > 2500) hint(tr("closer"));
+    else if (!dark && !fresh && S.results && now - Math.max(S.lastSeen, S.readyAt || 0) > 2500) hint(tr("closer"));
     grade(wctx, 0.25);
-    if (S.faceSince && now - S.faceSince > (S.waitMs || 1300)) startPossession();   // a random wait: no rhythm to guess
+    if (S.faceSince && now - S.faceSince > (S.waitMs || 1300)) { if (dark) { darkStrike(now); return; } startPossession(); }   // a random wait: no rhythm to guess
   } else if (S.phase === "possess" && f) {
     const t = (now - S.t0) / 1000, p = Math.min(1, t / PRE), k = ease(p), jumping = t >= PRE, q = jumping ? (t - PRE) / POST : 0;
     flinchUpdate(S.flinch, t, fresh);
@@ -522,6 +542,15 @@ function frame(now) {
   vctx.setTransform(1, 0, 0, 1, 0, 0); vctx.fillStyle = "#000"; vctx.fillRect(0, 0, VW, VH);
   vctx.setTransform(s, 0, 0, s, tx, ty); vctx.drawImage(world, 0, 0); vctx.setTransform(1, 0, 0, 1, 0, 0);
 
+  if (S.mode === "dark" && S.phase === "mirror") {            // lights out: black screen, a flickering whisper
+    vctx.fillStyle = "#000"; vctx.fillRect(0, 0, VW, VH);
+    if (S.meshReady && Math.random() > 0.08) {
+      const size = Math.round(Math.min(VW * 0.1, VH * 0.06));
+      vctx.font = `${size}px Creepster, cursive`; vctx.textAlign = "center"; vctx.textBaseline = "middle";
+      vctx.globalAlpha = 0.55 + 0.35 * Math.sin(now / 420); vctx.fillStyle = "#b8a9ae";
+      vctx.fillText(tr("dark"), VW / 2, VH * 0.5, VW * 0.9); vctx.globalAlpha = 1;
+    }
+  }
   if (S.phase === "possess") {
     const t = (now - S.t0) / 1000, p = t / PRE, q = (t - PRE) / POST;
     if (t >= PRE && q < 0.45 && (S.frameN >> 1) % 2 === 0) { vctx.fillStyle = "rgba(170,0,10,.42)"; vctx.fillRect(0, 0, VW, VH); }
@@ -538,8 +567,9 @@ function frame(now) {
 }
 
 // ------------------------------------------------------------------ start
-async function start() {
-  $("start").disabled = true;
+async function start(mode) {
+  S.mode = mode === "dark" ? "dark" : "mirror";
+  $("start").disabled = $("startDark").disabled = true;
   try {
     S.audio = S.audio || new (window.AudioContext || window.webkitAudioContext)();
     if (S.audio.state === "suspended") await S.audio.resume();
@@ -562,10 +592,10 @@ async function start() {
       await S.mesh.initialize();
       S.meshReady = true; S.readyAt = performance.now();
     }
-    hint(tr("look"));
+    hint(S.mode === "dark" ? "" : tr("look"));
   } catch (err) {
     fallback(err);
-  } finally { $("start").disabled = false; }
+  } finally { $("start").disabled = $("startDark").disabled = false; }
 }
 
 function fallback(err) {
@@ -576,10 +606,11 @@ function fallback(err) {
   $("intro").hidden = true; $("fallback").hidden = false; S.phase = "fallback"; hint("");
 }
 
-$("start").addEventListener("click", start);
+$("start").addEventListener("click", () => start("mirror"));
+$("startDark").addEventListener("click", () => start("dark"));
 $("retry").addEventListener("click", () => { $("fallback").hidden = true; $("intro").hidden = false; $("classic").pause(); });
 $("again").addEventListener("click", () => {
-  $("polaroid").hidden = true; S.phase = "mirror"; S.faceSince = 0; S.buffer = []; hint(tr("look"));
+  $("polaroid").hidden = true; S.phase = "mirror"; S.faceSince = 0; S.buffer = []; hint(S.mode === "dark" ? "" : tr("look"));
   if (S.audio && S.audio.state === "suspended") S.audio.resume();
 });
 $("save").addEventListener("click", () => {

@@ -42,3 +42,13 @@ def test_only_sane_numbers_are_accepted(client):
     unknown = client.post("/api/web/scares", {"visit": "00000000-0000-4000-8000-000000000000", "effect": "grin"}, format="json")
     assert unknown.status_code == 404
     assert client.post("/api/web/visits", {"lang": "fr"}, format="json").status_code == 400
+
+
+def test_the_lights_out_mode_is_kept_apart(client):
+    visit = _visit(client)
+    client.post("/api/web/scares", {"visit": visit, "effect": "grin", "flinch": 1.0}, format="json")
+    client.post("/api/web/scares", {"visit": visit, "effect": "melt", "flinch": 3.0, "mode": "dark"}, format="json")
+    from domain.entities import ScareEvent
+
+    assert sorted(ScareEvent.objects.values_list("trigger", flat=True)) == ["web", "web_dark"]
+    assert client.post("/api/web/scares", {"visit": visit, "effect": "grin", "mode": "disco"}, format="json").status_code == 400
