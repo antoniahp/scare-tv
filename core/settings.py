@@ -20,8 +20,14 @@ ALLOWED_HOSTS = [h.strip() for h in env("DJANGO_ALLOWED_HOSTS", "localhost,127.0
 if env("RENDER_EXTERNAL_HOSTNAME"):                    # set by Render on the deployed web service
     ALLOWED_HOSTS.append(env("RENDER_EXTERNAL_HOSTNAME"))
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    CSRF_TRUSTED_ORIGINS = [f"https://{env('RENDER_EXTERNAL_HOSTNAME')}"]   # the admin login form
+    SESSION_COOKIE_SECURE = CSRF_COOKIE_SECURE = True
 
 INSTALLED_APPS = [
+    "django.contrib.admin",                            # /admin: browse the night log (production included)
+    "django.contrib.auth",
+    "django.contrib.sessions",
+    "django.contrib.messages",
     "django.contrib.contenttypes",
     "django.contrib.staticfiles",
     "rest_framework",
@@ -32,13 +38,26 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",      # serves the web mirror (web/) efficiently, also in production
+    "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
+    "django.middleware.csrf.CsrfViewMiddleware",
+    "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "django.contrib.messages.middleware.MessageMiddleware",
+    "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
 ROOT_URLCONF = "core.urls"
 ASGI_APPLICATION = "core.asgi.application"
 WSGI_APPLICATION = "core.wsgi.application"
-TEMPLATES = []
+TEMPLATES = [{
+    "BACKEND": "django.template.backends.django.DjangoTemplates",
+    "APP_DIRS": True,
+    "OPTIONS": {"context_processors": [
+        "django.template.context_processors.request",
+        "django.contrib.auth.context_processors.auth",
+        "django.contrib.messages.context_processors.messages",
+    ]},
+}]
 
 # The night log: numbers only, never images or sound.
 DB_PATH = Path(env("SCARE_TV_DB", str(BASE_DIR / "data" / "scare_tv.sqlite3")))
@@ -59,6 +78,7 @@ TIME_ZONE = env("TIME_ZONE", "Europe/Madrid")
 LANGUAGE_CODE = "en-us"
 
 STATIC_URL = "static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"                 # `collectstatic` puts the admin's CSS here (served by WhiteNoise)
 
 REST_FRAMEWORK = {
     "DEFAULT_RENDERER_CLASSES": ["rest_framework.renderers.JSONRenderer"],

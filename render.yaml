@@ -1,4 +1,4 @@
-# Render Blueprint: the web mirror + its anonymous stats API (Django + DRF) and a free PostgreSQL database.
+# Render Blueprint: the web mirror + its anonymous stats API (Django + DRF), the /admin to browse it, and a free PostgreSQL database.
 # On Render: New → Blueprint → pick this repository. Nothing to fill in by hand: the secret key is generated
 # and the database URL is wired in automatically. Faces are still processed in each visitor's browser;
 # the server only receives numbers (which scare, how far the face jumped).
@@ -13,8 +13,8 @@ services:
     name: scare-tv
     runtime: python
     plan: free
-    buildCommand: pip install --upgrade pip poetry && poetry install --no-root --only web
-    startCommand: python manage.py migrate --noinput && gunicorn core.wsgi:application --bind 0.0.0.0:$PORT --workers 2 --threads 4
+    buildCommand: pip install --upgrade pip poetry && poetry install --no-root --only web && python manage.py collectstatic --noinput
+    startCommand: python manage.py migrate --noinput && (python manage.py createsuperuser --noinput || true) && gunicorn core.wsgi:application --bind 0.0.0.0:$PORT --workers 2 --threads 4
     healthCheckPath: /api/health
     envVars:
       - key: PYTHON_VERSION
@@ -27,3 +27,11 @@ services:
         fromDatabase:
           name: scare-tv-db
           property: connectionString
+      # The /admin login. Set DJANGO_SUPERUSER_PASSWORD yourself in Render → scare-tv → Environment:
+      # the user is created on the next start (and left alone afterwards).
+      - key: DJANGO_SUPERUSER_USERNAME
+        value: antonia
+      - key: DJANGO_SUPERUSER_EMAIL
+        value: admin@scare-tv.local
+      - key: DJANGO_SUPERUSER_PASSWORD
+        sync: false

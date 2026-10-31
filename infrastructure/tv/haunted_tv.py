@@ -30,6 +30,7 @@ from application.commands.record_scare.command import RecordScareCommand
 from application.commands.record_scare.command_dto import RecordScareCommandDTO
 from application.commands.start_night.command import StartNightCommand
 from application.commands.start_night.command_dto import StartNightCommandDTO
+from infrastructure.services.production_uploader import ProductionUploader, upload_url
 from application.queries.get_night_summary.query import GetNightSummaryQuery
 from application.queries.get_night_summary.query_dto import GetNightSummaryQueryDTO
 from domain.exceptions import NoScaresAvailable, NothingToMark
@@ -89,6 +90,11 @@ class ScareTV:
         if args.log:                          # the night log: numbers only (local database)
             media_name = os.path.basename(os.path.normpath(str(args.media)))
             self.night = StartNightCommand(self.repositories).execute(StartNightCommandDTO(lang=args.lang, media=media_name))
+        # ...and a copy of every record in the production database (Render), in the background
+        self.uploader = ProductionUploader(upload_url() if args.log and getattr(args, "upload", True) else None)
+        if self.uploader.enabled:
+            self.uploader.night(self.night)
+            print(f"Night log: also sent to {self.uploader.base} (numbers only)", flush=True)
         self.arrived_t = None
         self.present = False
         self.trigger = "auto"
@@ -160,7 +166,8 @@ class ScareTV:
                 elif e.key == pygame.K_f:
                     if self.night:
                         try:
-                            MarkFalseAlarmCommand(self.repositories).execute(MarkFalseAlarmCommandDTO(night_id=self.night.id))
+                            marked = MarkFalseAlarmCommand(self.repositories).execute(MarkFalseAlarmCommandDTO(night_id=self.night.id))
+                            self.uploader.scare(marked)
                             print("   (last scare marked as a false alarm)", flush=True)
                         except NothingToMark:
                             pass
@@ -240,9 +247,10 @@ class ScareTV:
     def _log_scare(self, kind, name, face, flinch, fled):
         wait = round(time.time() - self.arrived_t, 1) if self.arrived_t else None
         if self.night:
-            RecordScareCommand(self.repositories).execute(RecordScareCommandDTO(
+            event = RecordScareCommand(self.repositories).execute(RecordScareCommandDTO(
                 night_id=self.night.id, kind=kind, name=name, face_seen=bool(face), flinch=flinch, fled=fled,
                 wait_seconds=wait, trigger=self.trigger))
+            self.uploader.scare(event)
         if flinch is not None:
             print(f"   jump-o-meter: {score10(flinch)}/10 ({flinch} eye-distances){'  FLED!' if fled else ''}", flush=True)
 
@@ -561,7 +569,7 @@ class ScareTV:
                 if not self.present:
                     self.present, self.arrived_t = True, now
                     if self.night:
-                        RecordArrivalCommand(self.repositories).execute(RecordArrivalCommandDTO(night_id=self.night.id))
+                        self.uploader.arrival(RecordArrivalCommand(self.repositories).execute(RecordArrivalCommandDTO(night_id=self.night.id)))
                 last_seen = now
             else:
                 streak = 0
@@ -594,7 +602,8 @@ class ScareTV:
         pygame.quit()
         print(f"Done. Scares: {self.count}", flush=True)
         if self.night:
-            FinishNightCommand(self.repositories).execute(FinishNightCommandDTO(night_id=self.night.id))
+            self.uploader.night(FinishNightCommand(self.repositories).execute(FinishNightCommandDTO(night_id=self.night.id)))
+            self.uploader.flush()
             summary = GetNightSummaryQuery(self.repositories).execute(GetNightSummaryQueryDTO(night_id=self.night.id))
             if summary["scares"] or summary["arrivals"]:
                 md = as_markdown(summary, time.strftime("%Y-%m-%d"))

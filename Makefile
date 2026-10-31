@@ -17,7 +17,7 @@ ARGS      ?=
 
 .DEFAULT_GOAL := help
 .PHONY: help install realistic-install migrate run run2 try displays scares realistic voices voices-elevenlabs \
-        web mobile summary test lint
+        web mobile summary upload test lint
 
 help: ## This list
 	@grep -hE '^[a-z0-9-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  \033[33mmake %-17s\033[0m %s\n", $$1, $$2}'
@@ -73,6 +73,9 @@ mobile: ## Web mirror on your phone: https link + QR code
 
 summary: ## Summary of the last night (scares, jump-o-meter…)
 	$(MANAGE) night_summary
+
+upload: ## Send the local night log (TV) to the production database on Render
+	$(MANAGE) upload_nights $(ARGS)
 
 test: ## Run all the tests
 	$(PY) -m pytest -q

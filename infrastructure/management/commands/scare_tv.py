@@ -22,6 +22,8 @@ class Command(BaseCommand):
                         help="Do not show the photo of their scared face at the end")
         parser.add_argument("--no-log", dest="log", action="store_false",
                         help="Do not write the night log (numbers only, never images)")
+        parser.add_argument("--no-upload", dest="upload", action="store_false",
+                            help="Do not send the night log to the production database (Render)")
         parser.add_argument("--save-reactions", action="store_true",
                         help="Save those photos to reactions/ (ask people for permission first)")
         parser.add_argument("--conf", type=float, default=0.5, help="Minimum confidence to count as a person")

@@ -8,18 +8,18 @@ STYLE = ", found footage horror photo, harsh camera flash, film grain, photoreal
 # Prompts are short on purpose: SD-Turbo's text encoder only reads ~77 tokens. The possession step adds the black eyes
 # and the gaping mouth later, so the faces keep visible eyes here (YOLO-pose needs them to find the face).
 SCARES = [  # (name, description, scream type). All head-and-shoulders faces looking at you, so YOLO-pose finds and possesses them
-    ("pale_woman", "head and shoulders portrait of a ghostly woman, grey cracked skin, milky white eyes, long wet black hair hanging over her face", "scream"),
-    ("old_man", "head and shoulders portrait of a corpse-like old man, sunken grey skin, hollow cheeks, cloudy white eyes, crooked rotten teeth", "growl"),
-    ("girl", "head and shoulders portrait of a possessed little girl, deathly pale skin, dark veins on her cheeks, pale white eyes, cracked lips, dirty white dress", "strings"),
-    ("grandmother", "head and shoulders portrait of a dead old woman in a black lace veil, waxy grey skin, milky eyes, lit by one candle", "growl"),
-    ("smiling_man", "head and shoulders portrait of a pale bald man with an unnaturally wide grin full of teeth, bulging eyes, standing in a dark doorway", "both"),
-    ("drowned_woman", "head and shoulders portrait of a drowned woman, bluish grey skin, wet tangled hair stuck to her face, white eyes, grey lips", "scream"),
-    ("boy", "head and shoulders portrait of a ghost boy in old fashioned clothes, ash grey skin, dark sunken eyes, dust on his face, abandoned hallway", "strings"),
-    ("flashlight_man", "head and shoulders portrait of a gaunt pale man lit from below by a flashlight, wide staring eyes, sweat, black hallway", "scream"),
-    ("nurse", "head and shoulders portrait of a ghostly nurse, rotting grey skin, white eyes, stained old uniform, abandoned hospital corridor", "both"),
-    ("clown", "head and shoulders portrait of a sinister clown, cracked white face paint, smeared dark lipstick, yellow rotten teeth", "scream"),
+    ("pale_woman", "medium shot from a few meters away, head and shoulders and chest of a ghostly woman with long wet black hair over her face, grey skin, milky white eyes, standing in a dark hallway", "scream"),
+    ("old_man", "medium shot from a few meters away, head and shoulders and chest of a corpse-like old man, grey skin, cloudy white eyes, rotten teeth, sitting in a dark abandoned house", "growl"),
+    ("girl", "medium shot from a few meters away, head and shoulders and chest of a possessed little girl, deathly pale skin, dark veins, pale white eyes, dirty white dress, standing in a dark bedroom doorway", "strings"),
+    ("grandmother", "medium shot from a few meters away, head and shoulders and chest of a dead old woman in a black lace veil, grey skin, milky eyes, standing in a dark candlelit corridor", "growl"),
+    ("smiling_man", "medium shot from a few meters away, head and shoulders and chest of a pale bald man with an unnaturally wide grin full of teeth, bulging eyes, standing in a dark doorway", "both"),
+    ("drowned_woman", "medium shot from a few meters away, head and shoulders and chest of a drowned woman, bluish grey skin, wet tangled hair, white eyes, standing in a dark flooded bathroom", "scream"),
+    ("boy", "medium shot from a few meters away, head and shoulders and chest of a ghost boy in old fashioned clothes, ash grey skin, dark sunken eyes, dust on his face, abandoned hallway", "strings"),
+    ("flashlight_man", "medium shot from a few meters away, head and shoulders and chest of a gaunt pale man lit from below by a flashlight, wide staring eyes, standing in a black hallway", "scream"),
+    ("nurse", "medium shot from a few meters away, head and shoulders and chest of a ghostly nurse, rotting grey skin, white eyes, stained old uniform, abandoned hospital corridor", "both"),
+    ("clown", "medium shot from a few meters away, head and shoulders and chest of a sinister clown, cracked white face paint, rotten teeth, standing in a dark abandoned circus tent", "scream"),
 ]
-VERSION = "4"            # if it changes, they are all imagined again
+VERSION = "6"            # if it changes, they are all imagined again
 MAX_TRIES = 5            # attempts to find a face that can be possessed
 
 

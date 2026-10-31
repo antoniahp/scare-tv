@@ -21,3 +21,6 @@ media_real/
 
 # previous version (loose scripts), set aside when moving to Django + make
 _old/
+
+# collectstatic output
+staticfiles/

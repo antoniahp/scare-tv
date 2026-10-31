@@ -1,6 +1,7 @@
 from django.urls import path
 
 from infrastructure.api.night.view import FalseAlarmView, HealthView, NightScaresView, NightSummaryView
+from infrastructure.api.tv.view import TvArrivalView, TvNightView, TvScareView
 from infrastructure.api.web.view import VisitView, WebScareView, WebSummaryView
 
 urlpatterns = [
@@ -11,4 +12,7 @@ urlpatterns = [
     path("web/visits", VisitView.as_view()),
     path("web/scares", WebScareView.as_view()),
     path("web/summary", WebSummaryView.as_view()),
+    path("tv/nights", TvNightView.as_view()),
+    path("tv/arrivals", TvArrivalView.as_view()),
+    path("tv/scares", TvScareView.as_view()),
 ]
