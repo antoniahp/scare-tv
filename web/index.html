@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#07040b">
 <title>Scare-TV · Look into the mirror</title>
-<meta name="description" content="A haunted mirror that runs entirely in your browser. An open-weight face model finds your eyes… and then something happens to them. Nothing is uploaded.">
+<meta name="description" content="A haunted mirror that runs entirely in your browser. An open-weight face model finds your eyes… and then something happens to them. No image ever leaves your phone.">
 <meta property="og:title" content="Scare-TV · Look into the mirror">
-<meta property="og:description" content="Open it on your phone and look at yourself. Nothing leaves your device.">
+<meta property="og:description" content="Open it on your phone and look at yourself. No image ever leaves your device.">
 <meta property="og:image" content="media/og.jpg">
 <style>
   @font-face { font-family: "Creepster"; src: url("fonts/Creepster-Regular.ttf") format("truetype"); font-display: swap; }
@@ -55,6 +55,7 @@
   .card .cap { font-family: Creepster, cursive; color: #2a1616; font-size: 24px; margin-top: 10px; letter-spacing: .03em; }
   .card .meter { font-family: Creepster, cursive; color: var(--blood); font-size: 20px; letter-spacing: .04em; }
   .bar { height: 10px; background: #d8cfbf; border-radius: 6px; overflow: hidden; margin: 6px 6px 0; }
+  .rank { font-family: Creepster, cursive; color: #2a1616; font-size: 18px; letter-spacing: .03em; margin-top: 8px; min-height: 1.2em; }
   .bar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #ff9a3d, var(--blood)); transition: width .9s .3s; }
   .row { display: flex; gap: 10px; margin-top: 22px; flex-wrap: wrap; justify-content: center; }
   #fallback video { display: block; width: min(92vw, 560px); border-radius: 10px; margin: 14px auto; background: #000; }
@@ -75,7 +76,7 @@
   <p class="tag" data-t="tag">Look into the mirror</p>
   <p class="lead" data-t="lead">Your camera becomes a mirror. An open-weight face model finds your eyes, your nose and your mouth… and then something happens to them.</p>
   <button class="go" id="start" data-t="start">Look 👁️</button>
-  <p class="fine" data-html="fine">Everything runs <b>inside your browser</b>. No photo or video ever leaves your device. Turn the sound <b>up</b>. Best on a phone, in a dim room.</p>
+  <p class="fine" data-html="fine">Everything runs <b>inside your browser</b>. No photo or video ever leaves your device: only anonymous numbers (which scare, how far you jumped). Turn the sound <b>up</b>. Best on a phone, in a dim room.</p>
 </section>
 
 <section class="screen" id="polaroid" hidden>
@@ -84,12 +85,13 @@
     <div class="cap" data-t="cap">Your scared face</div>
     <div class="meter" id="meter"></div>
     <div class="bar"><i id="barfill"></i></div>
+    <div class="rank" id="rank" aria-live="polite"></div>
   </div>
   <div class="row">
     <button class="go" id="again" data-t="again">Again 👻</button>
     <button class="ghost" id="save" data-t="save">Save photo</button>
   </div>
-  <p class="fine" data-t="local">This photo only exists on your phone. Nothing was uploaded.</p>
+  <p class="fine" data-t="local">This photo only exists on your phone. Only the jump score was counted, anonymously.</p>
 </section>
 
 <section class="screen" id="fallback" hidden>
@@ -101,7 +103,7 @@
 </section>
 
 <script src="vendor/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
-<script src="app.js?v=4"></script>
+<script src="app.js?v=5"></script>
 <div id="dbg" hidden style="position:fixed;left:6px;bottom:6px;z-index:9;font:11px ui-monospace,monospace;color:#9f9;background:rgba(0,0,0,.6);padding:4px 6px;border-radius:4px;white-space:pre"></div>
 </body>
 </html>

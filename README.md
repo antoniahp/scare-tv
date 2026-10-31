@@ -37,11 +37,11 @@ It ships with **20 original scares** in `media/`, generated from code (`make sca
 
 ## 📱 Phone demo (nothing to install)
 
-`web/` is a version of the haunted mirror that runs **in a phone browser**: the face model (MediaPipe Face Mesh, open weights) ships with the page and no image is uploaded. With no camera, it shows a classic scare instead.
+`web/` is a version of the haunted mirror that runs **in a phone browser**: the face model (MediaPipe Face Mesh, open weights) ships with the page and no image is ever uploaded. After each scare the page sends anonymous numbers only (which possession, how far the face jumped, whether it left the frame) and the polaroid tells you how you rank: *"You jumped more than 73% of people"*. Stats for every visit: `/api/web/summary` (add `?md=1` for a table). With no camera, it shows a classic scare instead.
 
 - Try it locally: `make web` (opens http://localhost:8010)
 - Try it on your phone without deploying: `make mobile` (temporary https link + QR code)
-- Publish it for free on Render: *New → Blueprint* and pick this repository (it uses `render.yaml`). Phone cameras need https, and Render provides it.
+- Publish it for free on Render: *New → Blueprint* and pick this repository. `render.yaml` creates the Django web service and a free PostgreSQL database for the scoreboard, with nothing to fill in by hand. Phone cameras need https, and Render provides it.
 
 ## 📊 The night log and the jump-o-meter
 

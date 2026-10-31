@@ -1,19 +1,29 @@
-# Render Blueprint: publishes the web demo (web/) as a free static site.
-# On Render: New → Blueprint → pick this repository. No server and no database:
-# faces are processed in each visitor's browser.
+# Render Blueprint: the web mirror + its anonymous stats API (Django + DRF) and a free PostgreSQL database.
+# On Render: New → Blueprint → pick this repository. Nothing to fill in by hand: the secret key is generated
+# and the database URL is wired in automatically. Faces are still processed in each visitor's browser;
+# the server only receives numbers (which scare, how far the face jumped).
+databases:
+  - name: scare-tv-db
+    plan: free
+    databaseName: scare_tv
+    user: scare_tv
+
 services:
   - type: web
-    name: scare-tv-mirror
-    runtime: static
-    buildCommand: echo "nothing to build"
-    staticPublishPath: ./web
-    headers:
-      - path: /*
-        name: Permissions-Policy
-        value: camera=(self)
-      - path: /vendor/*
-        name: Cache-Control
-        value: public, max-age=604800
-      - path: /*
-        name: X-Content-Type-Options
-        value: nosniff
+    name: scare-tv
+    runtime: python
+    plan: free
+    buildCommand: pip install --upgrade pip poetry && poetry install --no-root --only web
+    startCommand: python manage.py migrate --noinput && gunicorn core.wsgi:application --bind 0.0.0.0:$PORT --workers 2 --threads 4
+    healthCheckPath: /api/health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.8
+      - key: DJANGO_DEBUG
+        value: "0"
+      - key: DJANGO_SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: scare-tv-db
+          property: connectionString

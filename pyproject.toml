@@ -7,6 +7,8 @@ dependencies = [
     "django (>=5.2,<7.0)",
     "djangorestframework (>=3.16,<4.0)",
     "python-dotenv (>=1.0,<2.0)",
+    "whitenoise (>=6.6,<7.0)",
+    "dj-database-url (>=2.1,<4.0)",
     # vision, image and sound (pinned to the versions that already work on the Mac, so Poetry does not reinstall them)
     "numpy (==2.5.4)",
     "scipy (==1.18.1)",
@@ -30,6 +32,19 @@ realistic = [
 
 [tool.poetry]
 package-mode = false
+
+# Only what the deployed web mirror + stats API needs (Render): `poetry install --no-root --only web`
+[tool.poetry.group.web]
+optional = true
+
+[tool.poetry.group.web.dependencies]
+django = ">=5.2,<7.0"
+djangorestframework = ">=3.16,<4.0"
+python-dotenv = ">=1.0,<2.0"
+whitenoise = ">=6.6,<7.0"
+dj-database-url = ">=2.1,<4.0"
+gunicorn = ">=23.0"
+psycopg = { version = ">=3.2", extras = ["binary"] }
 
 [tool.poetry.group.dev.dependencies]
 pytest = ">=8.3"

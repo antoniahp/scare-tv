@@ -1,7 +1,8 @@
 /* Scare-TV · web mirror
  * The camera becomes a mirror. MediaPipe Face Mesh (open weights, Apache 2.0) runs inside the browser
  * and finds 468 points on your face; the possession is drawn on top of your real reflection.
- * Nothing is uploaded: there is no server, only these static files.
+ * No image, video or sound ever leaves the device. When a server is there (Render), the page sends it
+ * anonymous numbers only: which scare ran and how far the face jumped, to compare with everyone else.
  */
 "use strict";
 
@@ -14,10 +15,11 @@ const I18N = {
     tag: "Look into the mirror",
     lead: "Your camera becomes a mirror. An open-weight face model finds your eyes, your nose and your mouth… and then something happens to them.",
     start: "Look 👁️",
-    fine: "Everything runs <b>inside your browser</b>. No photo or video ever leaves your device. Turn the sound <b>up</b>. Best on a phone, in a dim room.",
+    fine: "Everything runs <b>inside your browser</b>. No photo or video ever leaves your device: only anonymous numbers (which scare, how far you jumped). Turn the sound <b>up</b>. Best on a phone, in a dim room.",
     cap: "Your scared face", again: "Again 👻", save: "Save photo",
-    local: "This photo only exists on your phone. Nothing was uploaded.",
-    meter: (n) => `Jump-o-meter ${n}/10`, meterNone: "Jump-o-meter: you didn't even blink",
+    local: "This photo only exists on your phone. Only the jump score was counted, anonymously.",
+    meter: (n) => `Jump-o-meter ${n}/10`, meterNone: "Jump-o-meter: you didn't even blink", blinked: "It struck while you blinked.",
+    rank: (p) => `You jumped more than ${p}% of people`, first: "You're the first one tonight 👻",
     fallbackfine: "This is one of the 20 classic scares. The live one needs a camera: open this page on your phone.",
     retry: "Try the camera again",
     loading: "Waking the mirror… (downloading the face model, 10 MB)", noFace: "The face model isn't answering on this browser.", look: "Look into the mirror…", closer: "Come closer… I can't see your face",
@@ -34,10 +36,11 @@ const I18N = {
     tag: "Mírate en el espejo",
     lead: "Tu cámara se convierte en un espejo. Un modelo de caras open-weight encuentra tus ojos, tu nariz y tu boca… y entonces les pasa algo.",
     start: "Mirar 👁️",
-    fine: "Todo funciona <b>dentro de tu navegador</b>. Ninguna foto ni vídeo sale de tu dispositivo. Sube el <b>volumen</b>. Mejor en el móvil y con poca luz.",
+    fine: "Todo funciona <b>dentro de tu navegador</b>. Ninguna foto ni vídeo sale de tu dispositivo: solo números anónimos (qué susto y cuánto saltaste). Sube el <b>volumen</b>. Mejor en el móvil y con poca luz.",
     cap: "Tu cara de susto", again: "Otra vez 👻", save: "Guardar foto",
-    local: "Esta foto solo existe en tu móvil. No se ha subido nada.",
-    meter: (n) => `Saltómetro ${n}/10`, meterNone: "Saltómetro: ni has pestañeado",
+    local: "Esta foto solo existe en tu móvil. Solo se ha contado tu salto, de forma anónima.",
+    meter: (n) => `Saltómetro ${n}/10`, meterNone: "Saltómetro: ni has pestañeado", blinked: "Atacó mientras parpadeabas.",
+    rank: (p) => `Saltaste más que el ${p} % de la gente`, first: "Eres la primera víctima de la noche 👻",
     fallbackfine: "Este es uno de los 20 sustos clásicos. El de tu cara necesita cámara: abre esta página en el móvil.",
     retry: "Probar la cámara otra vez",
     loading: "Despertando al espejo… (bajando el modelo de caras, 10 MB)", noFace: "El modelo de caras no responde en este navegador.", look: "Mírate en el espejo…", closer: "Acércate… no veo tu cara",
@@ -297,6 +300,36 @@ function flinchUpdate(fl, t, f) {
   const moved = dist(f.center, fl.ref[0]) / fl.ref[1], back = Math.max(0, 1 - f.d / fl.ref[1]) * 4;
   fl.best = Math.max(fl.best, moved, back);
 }
+// ------------------------------------------------------------------ blink: the hit lands while your eyes are closed
+// Eye openness from the Face Mesh eyelid landmarks (upper/lower lid over eye width, both eyes).
+const MIN_TENSION = 0.9;                // seconds of tension before a blink may bring the hit forward
+function eyeOpenness(lm) {
+  if (!lm) return null;
+  const d = (a, b) => Math.hypot(lm[a].x - lm[b].x, lm[a].y - lm[b].y);
+  const w = d(33, 133) + d(362, 263);
+  return w > 0 ? (d(159, 145) + d(386, 374)) / w : null;
+}
+function trackEyes(fresh) {             // keeps a running "eyes open" baseline; true on the frame a blink starts
+  const e = fresh ? eyeOpenness(S.lm) : null;
+  if (e == null) return false;
+  if (S.eyeBase == null) S.eyeBase = e;
+  const closed = e < S.eyeBase * 0.55;
+  if (!closed) S.eyeBase = S.eyeBase * 0.95 + e * 0.05;
+  const blink = closed && !S.eyesClosed;
+  S.eyesClosed = closed;
+  return blink;
+}
+function hitNow(now) {                  // jump the timeline (picture and sound) straight to the hit
+  if ((now - S.t0) / 1000 >= PRE) return;
+  S.t0 = now - PRE * 1000; S.blinkHit = true;
+  if (S.src) { try { S.src.stop(); } catch (e) { /* already stopped */ } }
+  const b = S.buffers[S.effect];
+  if (b && S.audio) {
+    const src = S.audio.createBufferSource(); src.buffer = b; src.connect(S.audio.destination);
+    src.start(0, Math.max(0, PRE - 0.05)); S.src = src;
+  }
+}
+
 function flinchScore(fl) {
   if (!fl || !fl.ref || !fl.after) return null;
   if (fl.seen / fl.after < 0.3) return 10;               // left the frame: maximum
@@ -314,6 +347,7 @@ async function loadBuffer(name) {
 function playTrack(name) {
   const b = S.buffers[name]; if (!b || !S.audio) return;
   const src = S.audio.createBufferSource(); src.buffer = b; src.connect(S.audio.destination); src.start();
+  return src;
 }
 function sayLine(effect) {
   if (!("speechSynthesis" in window)) return;
@@ -323,6 +357,25 @@ function sayLine(effect) {
   speechSynthesis.cancel(); speechSynthesis.speak(u);
 }
 
+// ------------------------------------------------------------------ anonymous stats (only numbers, only if a server is there)
+async function api(path, body) {
+  try {
+    const r = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    return r.ok ? await r.json() : null;
+  } catch (e) { return null; }
+}
+async function reportScare(fl, effect, waitS) {
+  if (!S.visit) S.visit = (await api("api/web/visits", { lang: S.lang }) || {}).visit;
+  if (!S.visit) return null;
+  const measured = !!(fl && fl.ref && fl.after);
+  const fled = measured && fl.seen / fl.after < 0.3;
+  return api("api/web/scares", {
+    visit: S.visit, effect, face_seen: !!(fl && fl.ref), fled,
+    flinch: measured ? Math.round(Math.min(20, fled ? Math.max(fl.best, 4) : fl.best) * 100) / 100 : null,
+    wait_seconds: waitS == null ? null : Math.round(waitS * 10) / 10,
+  });
+}
+
 // ------------------------------------------------------------------ flow
 function hint(text) { $("hint").textContent = text || ""; $("hint").style.opacity = text ? 1 : 0; }
 function nextEffect() {
@@ -330,9 +383,10 @@ function nextEffect() {
   return S.effects.pop();
 }
 function startPossession() {
+  S.wait = S.faceSince ? (performance.now() - S.faceSince) / 1000 : null;
   S.effect = nextEffect(); S.phase = "possess"; S.t0 = performance.now(); S.flinch = newFlinch(); S.snap = null;
-  S.voiceSaid = false; S.hitDone = false; hint("");
-  playTrack(S.effect);
+  S.voiceSaid = false; S.hitDone = false; S.blinkHit = false; hint("");
+  S.src = playTrack(S.effect);
   loadBuffer(S.effects.length ? S.effects[S.effects.length - 1] : EFFECTS[0]).catch(() => {});   // prefetch the next one
 }
 
@@ -350,9 +404,16 @@ function showPolaroid() {
   S.phase = "polaroid"; hint("");
   const score = flinchScore(S.flinch);
   $("shot").src = S.snap || "";
-  $("meter").textContent = score === null || score === 0 ? tr("meterNone") : tr("meter", score);
+  $("meter").textContent = (score === null || score === 0 ? tr("meterNone") : tr("meter", score)) + (S.blinkHit ? " · " + tr("blinked") : "");
   $("barfill").style.width = "0";
+  $("rank").textContent = "";
   $("polaroid").hidden = false;
+  if (score !== null) {
+    reportScare(S.flinch, S.effect, S.wait).then((r) => {
+      if (!r || S.phase !== "polaroid") return;
+      $("rank").textContent = r.rank === null || r.rank === undefined ? tr("first") : tr("rank", r.rank);
+    });
+  }
   requestAnimationFrame(() => requestAnimationFrame(() => { $("barfill").style.width = `${(score || 0) * 10}%`; }));
 }
 
@@ -389,15 +450,17 @@ function frame(now) {
 
   let focus = [W / 2, H / 2], zoom = 1, shake = 0;
   if (S.phase === "mirror") {
-    if (fresh) { if (!S.faceSince) S.faceSince = now; hint(tr("look")); } else { S.faceSince = 0; }
+    if (fresh) { if (!S.faceSince) { S.faceSince = now; S.waitMs = 1500 + Math.random() * 3500; } hint(tr("look")); } else { S.faceSince = 0; }
+    trackEyes(fresh);                                             // learn how open their eyes normally are
     if (!S.meshReady) hint(tr("loading"));                       // still downloading: don't blame the face
     else if (!S.results && S.sendErr > 3) hint(tr("noFace") + (DEBUG ? " " + S.lastErr : ""));
     else if (!fresh && S.results && now - Math.max(S.lastSeen, S.readyAt || 0) > 2500) hint(tr("closer"));
     grade(wctx, 0.25);
-    if (S.faceSince && now - S.faceSince > 1300) startPossession();
+    if (S.faceSince && now - S.faceSince > (S.waitMs || 1300)) startPossession();   // a random wait: no rhythm to guess
   } else if (S.phase === "possess" && f) {
     const t = (now - S.t0) / 1000, p = Math.min(1, t / PRE), k = ease(p), jumping = t >= PRE, q = jumping ? (t - PRE) / POST : 0;
     flinchUpdate(S.flinch, t, fresh);
+    if (trackEyes(fresh) && !jumping && t > MIN_TENSION) hitNow(now);   // you blinked: it's already in your face
     if (!S.voiceSaid && t > 0.5) { S.voiceSaid = true; sayLine(S.effect); }
     if (jumping && !S.hitDone) { S.hitDone = true; if (navigator.vibrate) navigator.vibrate([260, 80, 420]); }
     if (jumping && !S.snap && t > PRE + 0.45) S.snap = takeSnap(f);
@@ -531,4 +594,4 @@ applyLang(startLang);
 requestAnimationFrame(frame);
 
 // for automated tests only
-window.__stv = { S, EFFECTS, startPossession, flinchScore, newFlinch, flinchUpdate, faceFrom };
+window.__stv = { S, EFFECTS, startPossession, flinchScore, newFlinch, flinchUpdate, faceFrom, showPolaroid, reportScare };

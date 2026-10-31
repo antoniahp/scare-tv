@@ -39,3 +39,10 @@ def test_a_face_is_only_possessed_with_head_and_shoulders_in_shot():
 
 def test_realistic_scares_are_faces_described_generically():
     assert len(SCARES) == 10 and all("head and shoulders" in p for _, p, _ in SCARES)
+
+
+def test_percentile_rank_compares_a_jump_with_everyone_else():
+    from domain.rules.night_summary import percentile_rank
+
+    assert percentile_rank([1.0, 2.0, 3.0, None], 2.5) == 67
+    assert percentile_rank([], 2.0) is None and percentile_rank([1.0], None) is None

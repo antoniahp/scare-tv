@@ -17,6 +17,9 @@ def env(name, default=""):
 SECRET_KEY = env("DJANGO_SECRET_KEY", "development-only-scare-tv-nothing-secret-here")
 DEBUG = env("DJANGO_DEBUG", "1").lower() in ("1", "true", "yes")
 ALLOWED_HOSTS = [h.strip() for h in env("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1,.lhr.life,.pinggy.link").split(",") if h.strip()]
+if env("RENDER_EXTERNAL_HOSTNAME"):                    # set by Render on the deployed web service
+    ALLOWED_HOSTS.append(env("RENDER_EXTERNAL_HOSTNAME"))
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
 INSTALLED_APPS = [
     "django.contrib.contenttypes",
@@ -28,6 +31,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",      # serves the web mirror (web/) efficiently, also in production
     "django.middleware.common.CommonMiddleware",
 ]
 
@@ -45,6 +49,10 @@ DATABASES = {
         "NAME": str(DB_PATH),
     }
 }
+if env("DATABASE_URL"):                                # production (Render): PostgreSQL
+    import dj_database_url
+
+    DATABASES["default"] = dj_database_url.parse(env("DATABASE_URL"), conn_max_age=600)
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 USE_TZ = True
 TIME_ZONE = env("TIME_ZONE", "Europe/Madrid")
@@ -59,6 +67,9 @@ REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.AllowAny"],
     "UNAUTHENTICATED_USER": None,
 }
+
+WHITENOISE_ROOT = BASE_DIR / "web"
+WHITENOISE_INDEX_FILE = True
 
 SCARE_TV = {
     "MEDIA_DIR": BASE_DIR / "media",

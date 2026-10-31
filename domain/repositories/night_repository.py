@@ -10,7 +10,7 @@ class NightRepository(ABC):
 
     @abstractmethod
     def latest(self):
-        """The latest night, or None."""
+        """The latest TV night (web visits are not nights), or None."""
 
     @abstractmethod
     def save(self, night):
@@ -38,4 +38,16 @@ class NightRepository(ABC):
 
     @abstractmethod
     def count_arrivals(self, night):
+        pass
+
+    @abstractmethod
+    def count_nights(self, media):
+        """How many nights (or web visits) used this scare source."""
+
+    @abstractmethod
+    def scares_by_media(self, media):
+        """Every scare from every night that used this scare source, in order."""
+
+    @abstractmethod
+    def count_arrivals_by_media(self, media):
         pass

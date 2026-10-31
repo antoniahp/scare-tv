@@ -7,7 +7,7 @@ class DjangoNightRepository(NightRepository):
         return Night.objects.filter(id=night_id).first()
 
     def latest(self):
-        return Night.objects.order_by("-started_at").first()
+        return Night.objects.exclude(media="web").order_by("-started_at").first()     # the TV's nights, not web visits
 
     def save(self, night):
         night.save()
@@ -32,3 +32,12 @@ class DjangoNightRepository(NightRepository):
 
     def count_arrivals(self, night):
         return Arrival.objects.filter(night=night).count()
+
+    def count_nights(self, media):
+        return Night.objects.filter(media=media).count()
+
+    def scares_by_media(self, media):
+        return list(ScareEvent.objects.filter(night__media=media).order_by("created_at"))
+
+    def count_arrivals_by_media(self, media):
+        return Arrival.objects.filter(night__media=media).count()

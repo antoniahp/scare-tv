@@ -14,15 +14,31 @@ def group_stats(rows):
     }
 
 
+def percentile_rank(values, value):
+    """Percentage of `values` strictly below `value` (0-100), or None if there is nothing to compare with."""
+    others = [v for v in values if v is not None]
+    if value is None or not others:
+        return None
+    return round(100 * sum(1 for v in others if v < value) / len(others))
+
+
+def summarize_all(scares, arrivals, nights):
+    """Summary over many nights at once (e.g. every visit to the web mirror)."""
+    s = _summarize_scares(scares, arrivals)
+    return {"visits": nights, **s}
+
+
 def summarize(night, scares, arrivals):
+    return {"night": str(night.id), "minutes": night.minutes, **_summarize_scares(scares, arrivals)}
+
+
+def _summarize_scares(scares, arrivals):
     real = [s for s in scares if not s.false_alarm]
     by_name = {}
     for s in real:
         by_name.setdefault((s.kind, s.name), []).append(s)
     waits = [s.wait_seconds for s in real if s.wait_seconds is not None]
     return {
-        "night": str(night.id),
-        "minutes": night.minutes,
         "arrivals": arrivals,
         "scares": len(real),
         "false_alarms": sum(1 for s in scares if s.false_alarm),
@@ -51,4 +67,20 @@ def as_markdown(s, date_label):
     for r in s["by_scare"]:
         lines.append(f"| {r['name']} | {'live' if r['kind'] == 'live' else 'classic'} | {r['n']} | {f(r['flinch_mean'])} | {r['fled']} |")
     lines += ["", "*No images or sound: just these numbers.*"]
+    return "\n".join(lines)
+
+
+def web_markdown(s):
+    """Markdown for the web mirror stats (every visit together)."""
+    f = lambda v: "–" if v is None else str(v)  # noqa: E731
+    g = s["live"]
+    lines = ["# Scare-TV · web mirror stats", "",
+             f"- Visits: **{s['visits']}**",
+             f"- Scares: **{s['scares']}** ({g['measured']} with a measured jump)",
+             f"- Mean jump: **{f(g['flinch_mean'])}** eye-distances (median {f(g['flinch_median'])})",
+             f"- Fled the frame: **{g['fled']}**", "",
+             "| Scare | Times | Mean jump | Fled |", "|---|---|---|---|"]
+    for r in s["by_scare"]:
+        lines.append(f"| {r['name']} | {r['n']} | {f(r['flinch_mean'])} | {r['fled']} |")
+    lines += ["", "*Anonymous numbers only: no image or sound ever leaves the visitor's phone.*"]
     return "\n".join(lines)
