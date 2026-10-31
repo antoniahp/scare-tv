@@ -1,0 +1,61 @@
+[project]
+name = "scare-tv"
+version = "2.0.0"
+description = "Scare-TV: your TV becomes a haunted mirror. Open-weight vision (YOLO-pose) + SD-Turbo, 100% local. Django + DRF with hexagonal architecture and CQRS."
+requires-python = ">=3.12,!=3.14.1,<3.15"
+dependencies = [
+    "django (>=5.2,<7.0)",
+    "djangorestframework (>=3.16,<4.0)",
+    "python-dotenv (>=1.0,<2.0)",
+    # vision, image and sound (pinned to the versions that already work on the Mac, so Poetry does not reinstall them)
+    "numpy (==2.5.4)",
+    "scipy (==1.18.1)",
+    "opencv-python (==5.0.0.93)",
+    "pillow (==13.0.0)",
+    "pygame-ce (==2.5.8)",
+    "ultralytics (==8.4.192)",
+    "torch (==2.15.0)",
+    "torchvision (==0.29.2)",
+    "qrcode (>=8.0)",
+]
+
+[project.optional-dependencies]
+# Scare-TV 2: the image model (SD-Turbo). Installed by `make realistic`.
+realistic = [
+    "diffusers (==0.42.1)",
+    "transformers (==5.22.1)",
+    "accelerate (==1.15.0)",
+    "safetensors (==0.8.0)",
+]
+
+[tool.poetry]
+package-mode = false
+
+[tool.poetry.group.dev.dependencies]
+pytest = ">=8.3"
+pytest-django = ">=4.9"
+ruff = ">=0.6"
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "core.settings"
+pythonpath = ["."]
+python_files = ["test_*.py"]
+testpaths = ["tests"]
+addopts = "-q"
+filterwarnings = ["ignore::DeprecationWarning", "ignore::UserWarning"]
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.ruff]
+line-length = 140
+target-version = "py312"
+extend-exclude = ["domain/migrations"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+ignore = ["E501", "B904"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["core", "domain", "application", "infrastructure", "tests"]
