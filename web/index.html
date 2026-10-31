@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#07040b">
+<title>Scare-TV · Look into the mirror</title>
+<meta name="description" content="A haunted mirror that runs entirely in your browser. An open-weight face model finds your eyes… and then something happens to them. Nothing is uploaded.">
+<meta property="og:title" content="Scare-TV · Look into the mirror">
+<meta property="og:description" content="Open it on your phone and look at yourself. Nothing leaves your device.">
+<meta property="og:image" content="media/og.jpg">
+<style>
+  @font-face { font-family: "Creepster"; src: url("fonts/Creepster-Regular.ttf") format("truetype"); font-display: swap; }
+  :root { --bg: #07040b; --ink: #efe6f5; --muted: #9b8cab; --pumpkin: #ff7a1a; --blood: #e0242f; --line: rgba(255,255,255,.12); }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); overflow: hidden;
+               font: 16px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; -webkit-tap-highlight-color: transparent; }
+  canvas#stage { position: fixed; inset: 0; width: 100vw; height: 100dvh; display: block; background: #000; }
+  /* iOS does not update a <video> with display:none: keep it invisible but "on screen" */
+  video#cam { position: fixed; top: 0; left: 0; width: 2px; height: 2px; opacity: .01; pointer-events: none; }
+  .screen { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+            padding: max(24px, env(safe-area-inset-top)) 22px max(24px, env(safe-area-inset-bottom)); text-align: center; z-index: 5; }
+  .screen[hidden] { display: none; }
+  #intro { background: radial-gradient(120% 80% at 50% 0%, #2a1240 0%, #0c0614 55%, #050208 100%); }
+  #intro::after { content: ""; position: absolute; inset: 0; pointer-events: none; opacity: .09;
+                  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence baseFrequency='.9' numOctaves='2'/></filter><rect width='120' height='120' filter='url(%23n)'/></svg>"); }
+  .brand { font-family: Creepster, cursive; font-size: clamp(54px, 17vw, 104px); line-height: .95; color: var(--pumpkin);
+           text-shadow: 0 0 34px rgba(255,122,26,.45), 0 4px 0 #3a1400; margin: 0; letter-spacing: .02em; }
+  .tag { font-family: Creepster, cursive; font-size: clamp(22px, 6vw, 30px); color: #d9cde6; margin: 6px 0 18px; letter-spacing: .04em; }
+  .lead { max-width: 30em; color: #d6cae3; margin: 0 0 22px; }
+  .mirror { width: 128px; height: 168px; border-radius: 64px 64px 50px 50px; margin: 0 auto 22px; position: relative;
+            background: radial-gradient(60% 50% at 45% 40%, #3b3448, #120d18); border: 6px solid #6b4a1e;
+            box-shadow: 0 0 0 3px #2a1a08, 0 0 60px rgba(255,122,26,.18), inset 0 0 30px #000; }
+  .mirror::before, .mirror::after { content: ""; position: absolute; top: 62px; width: 18px; height: 12px; border-radius: 50%;
+            background: #000; box-shadow: 0 0 10px #000; animation: blink 6s infinite; }
+  .mirror::before { left: 34px; } .mirror::after { right: 34px; }
+  @keyframes blink { 0%, 92%, 100% { transform: scaleY(1); opacity: .9; } 95% { transform: scaleY(.1); } }
+  button { font: inherit; cursor: pointer; border: 0; border-radius: 999px; padding: 16px 30px; font-weight: 800; letter-spacing: .02em; }
+  .go { background: linear-gradient(#ff9a3d, var(--pumpkin)); color: #1b0900; font-size: 19px; box-shadow: 0 10px 40px rgba(255,122,26,.35); }
+  .go:active { transform: scale(.97); }
+  .ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); padding: 12px 22px; font-weight: 600; }
+  .fine { color: var(--muted); font-size: 13px; max-width: 30em; margin-top: 18px; }
+  .fine b { color: #cfc2dc; }
+  .langs { position: absolute; top: max(14px, env(safe-area-inset-top)); right: 14px; display: flex; gap: 6px; z-index: 6; }
+  .langs button { padding: 6px 11px; font-size: 12px; background: rgba(255,255,255,.06); color: var(--muted); border: 1px solid var(--line); }
+  .langs button[aria-pressed="true"] { color: #1b0900; background: var(--pumpkin); border-color: var(--pumpkin); }
+  #hint { position: fixed; left: 0; right: 0; bottom: max(28px, env(safe-area-inset-bottom)); text-align: center; z-index: 4;
+          font-family: Creepster, cursive; font-size: clamp(22px, 6.5vw, 34px); color: #e8ddef; text-shadow: 0 2px 12px #000; pointer-events: none;
+          transition: opacity .4s; padding: 0 16px; }
+  #polaroid { background: rgba(6,3,10,.92); z-index: 7; }
+  .card { background: #f1ece2; padding: 14px 14px 18px; border-radius: 4px; transform: rotate(-3deg); box-shadow: 0 30px 80px rgba(0,0,0,.6);
+          width: min(82vw, 360px); animation: drop .45s cubic-bezier(.2,1.4,.4,1); }
+  @keyframes drop { from { transform: rotate(-12deg) scale(.6); opacity: 0; } }
+  .card img { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; background: #222; }
+  .card .cap { font-family: Creepster, cursive; color: #2a1616; font-size: 24px; margin-top: 10px; letter-spacing: .03em; }
+  .card .meter { font-family: Creepster, cursive; color: var(--blood); font-size: 20px; letter-spacing: .04em; }
+  .bar { height: 10px; background: #d8cfbf; border-radius: 6px; overflow: hidden; margin: 6px 6px 0; }
+  .bar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #ff9a3d, var(--blood)); transition: width .9s .3s; }
+  .row { display: flex; gap: 10px; margin-top: 22px; flex-wrap: wrap; justify-content: center; }
+  #fallback video { display: block; width: min(92vw, 560px); border-radius: 10px; margin: 14px auto; background: #000; }
+  .err { color: #ffb4a8; max-width: 28em; }
+  @media (prefers-reduced-motion: reduce) { .mirror::before, .mirror::after, .card { animation: none; } }
+</style>
+</head>
+<body>
+<video id="cam" playsinline muted autoplay></video>
+<canvas id="stage" aria-label="Your reflection"></canvas>
+<div id="hint" aria-live="polite"></div>
+
+<div class="langs" role="group" aria-label="Language"><button data-l="en">EN</button><button data-l="es">ES</button></div>
+
+<section class="screen" id="intro">
+  <div class="mirror" aria-hidden="true"></div>
+  <h1 class="brand">Scare-TV</h1>
+  <p class="tag" data-t="tag">Look into the mirror</p>
+  <p class="lead" data-t="lead">Your camera becomes a mirror. An open-weight face model finds your eyes, your nose and your mouth… and then something happens to them.</p>
+  <button class="go" id="start" data-t="start">Look 👁️</button>
+  <p class="fine" data-html="fine">Everything runs <b>inside your browser</b>. No photo or video ever leaves your device. Turn the sound <b>up</b>. Best on a phone, in a dim room.</p>
+</section>
+
+<section class="screen" id="polaroid" hidden>
+  <div class="card">
+    <img id="shot" alt="Your face, half a second after the scare">
+    <div class="cap" data-t="cap">Your scared face</div>
+    <div class="meter" id="meter"></div>
+    <div class="bar"><i id="barfill"></i></div>
+  </div>
+  <div class="row">
+    <button class="go" id="again" data-t="again">Again 👻</button>
+    <button class="ghost" id="save" data-t="save">Save photo</button>
+  </div>
+  <p class="fine" data-t="local">This photo only exists on your phone. Nothing was uploaded.</p>
+</section>
+
+<section class="screen" id="fallback" hidden>
+  <h2 class="brand" style="font-size:44px">Scare-TV</h2>
+  <p class="err" id="errmsg"></p>
+  <video id="classic" src="media/classic.mp4" poster="media/classic.jpg" playsinline controls preload="none"></video>
+  <p class="fine" data-t="fallbackfine">This is one of the 20 classic scares. The live one needs a camera: open this page on your phone.</p>
+  <button class="ghost" id="retry" data-t="retry">Try the camera again</button>
+</section>
+
+<script src="vendor/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
+<script src="app.js?v=4"></script>
+<div id="dbg" hidden style="position:fixed;left:6px;bottom:6px;z-index:9;font:11px ui-monospace,monospace;color:#9f9;background:rgba(0,0,0,.6);padding:4px 6px;border-radius:4px;white-space:pre"></div>
+</body>
+</html>
