@@ -2,6 +2,10 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<script>
+  // The old static copy (scare-tv-mirror) has no database: send everyone to the real one, where scares are saved.
+  if (location.hostname === "scare-tv-mirror.onrender.com") location.replace("https://scare-tv.onrender.com" + location.pathname + location.search + location.hash);
+</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#07040b">
 <title>Scare-TV · Look into the mirror</title>

@@ -84,6 +84,9 @@ class PersonScareInline(admin.TabularInline):
     can_delete = False
     verbose_name_plural = "scares of this person"
 
+    def has_add_permission(self, request, obj=None):
+        return False
+
 
 @admin.register(Arrival)
 class PersonAdmin(admin.ModelAdmin):

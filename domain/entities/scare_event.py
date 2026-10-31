@@ -30,6 +30,10 @@ class ScareEvent(BaseModel):
     class Meta:
         ordering = ["created_at"]
 
+    def __str__(self):
+        level = "–" if self.jump_level is None else f"{self.jump_level}/10"
+        return f"{self.name} · jump {level}"
+
     @classmethod
     def prepare(cls, night, kind, name, face_seen=False, flinch=None, fled=False, wait_seconds=None, trigger="auto", arrival=None):
         if kind not in cls.KINDS:
